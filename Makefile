@@ -44,18 +44,10 @@ EXTRA_CFLAGS=-g -DDOUANE_VERSION=\"$(MODULE_VERSION)\"
 # Compilation flags with debug
 # EXTRA_CFLAGS=-g -DDOUANE_VERSION=\"$(MODULE_VERSION)\" -DDEBUG
 
-# ~~~~ Helpers ~~~~
-# See https://bugs.launchpad.net/ubuntu/+source/linux/+bug/929715
-LAUNCHPAD_BUG_929715_PATH=/usr/src/linux-headers-$(shell uname -r)/include/uapi/linux/netfilter_ipv4.h
-LAUNCHPAD_BUG_929715=$(shell grep "<limits.h>" $(LAUNCHPAD_BUG_929715_PATH))
-# ~~~~~~~~~~~~~~~~~
-
 
 # make
 all:
-	@$(MAKE) fix_launchpad_bug_929715
 	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
-	@$(MAKE) remove_fix_launchpad_bug_929715
 
 # make clean
 clean:
@@ -75,20 +67,6 @@ uninstall:
 reinstall:
 	$(MAKE) uninstall
 	$(MAKE) install
-
-# ~~~~ Bug fix actions ~~~~
-# make fix_launchpad_bug_929715
-fix_launchpad_bug_929715:
-	@if [ -n "$(LAUNCHPAD_BUG_929715)" ]; then \
-		sudo sed -i s/^#include\ \<limits.h\>\ \\/\\*\ for\ INT_MIN,\ INT_MAX\ \\*\\//\\/\\*#include\ \<limits.h\>\\*\\/\ \\/\\*\ for\ INT_MIN,\ INT_MAX\ \\*\\// $(LAUNCHPAD_BUG_929715_PATH);\
-	fi
-
-# make remove_fix_launchpad_bug_929715
-remove_fix_launchpad_bug_929715:
-	@if [ -n "$(LAUNCHPAD_BUG_929715)" ]; then \
-		sudo sed -i s/^\\/\\*#include\ \<limits.h\>\\*\\/\ \\/\\*\ for\ INT_MIN,\ INT_MAX\ \\*\\//#include\ \<limits.h\>\ \\/\\*\ for\ INT_MIN,\ INT_MAX\ \\*\\// $(LAUNCHPAD_BUG_929715_PATH);\
-	fi
-# ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # ~~~~ DKMS actions ~~~~
 # make dkms (Install the module using DKMS)

@@ -1,26 +1,32 @@
-# Douane kernel module
-# Copyright (C) 2013  Guillaume Hain <zedtux@zedroot.org>
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+// Douane kernel module
+// Copyright (C) 2013  Guillaume Hain <zedtux@zedroot.org>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <linux/module.h>         // Needed by all modules
 #include <linux/kernel.h>         // Needed for KERN_INFO
 #include <linux/version.h>        // Needed for LINUX_VERSION_CODE >= KERNEL_VERSION
 #include <linux/netfilter.h>
-#undef __KERNEL__
-#include <linux/netfilter_ipv4.h> // NF_IP_POST_ROUTING, NF_IP_PRI_LAST
-#define __KERNEL__
+// ~~~~ Due to bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/929715 ~~~~
+// #undef __KERNEL__
+// #include <linux/netfilter_ipv4.h> // NF_IP_POST_ROUTING, NF_IP_PRI_LAST
+// #define __KERNEL__
+#define NF_IP_LOCAL_OUT 3
+enum nf_ip_hook_priorities {
+  NF_IP_PRI_LAST = INT_MAX
+};
+// ~~~~
 #include <linux/netfilter.h>      // nf_register_hook(), nf_unregister_hook()
 #include <linux/netlink.h>        // NLMSG_SPACE(), nlmsg_put(), NETLINK_CB(), NLMSG_DATA(), NLM_F_REQUEST, netlink_unicast(), netlink_kernel_release(), nlmsg_hdr(), NETLINK_USERSOCK, netlink_kernel_create()
 #include <linux/sched.h>          // for_each_process(), task_lock(), task_unlock()
