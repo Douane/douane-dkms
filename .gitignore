@@ -1,0 +1,10 @@
+.douane.ko.cmd
+.douane.mod.o.cmd
+.douane.o.cmd
+.tmp_versions/
+Module.symvers
+douane.ko
+douane.mod.c
+douane.mod.o
+douane.o
+modules.order
