@@ -53,6 +53,8 @@ MODULE_LICENSE("GPL");
 
 
 #define PATH_LENGTH 129
+// Limit of fd not found before to switch to the next process
+#define MAX_FD_NULL 9
 
 /*
 ** Helpers
@@ -612,6 +614,7 @@ static bool task_has_open_file(const struct task_struct * task, const struct fil
   struct file * file = NULL;
   int           fd_i = 0;
   int           fd_null = 0;
+  int           fd_null_max = 0;
   bool          iterating_fd = true;
 
   if (task == NULL)
@@ -625,17 +628,40 @@ static bool task_has_open_file(const struct task_struct * task, const struct fil
     file = fcheck_files(task->files, fd_i);
     if (file)
     {
+      /*
+      ** In order to avoid going through all the fds of a process
+      *  the fd_null variable is used to define a limit.
+      *  This allows Douane to ignore processes which aren't owning the fd
+      *  and switch to the next process, so Douane is faster.
+      *
+      *  But this limit can make Douane blind and will never find the process.
+      *  In order to highligh this, the fd_null_max variable, which is printed
+      *  in the logs in debug mode, shows the correct number for the current
+      *  process.
+      *
+      *  For example, with Ubuntu <= 13.10, the correct value for fd_null is 3,
+      *  while now with Ubuntu 14.04, the correct value for fd_null is around 8.
+      */
+      if (fd_null > fd_null_max)
+        fd_null_max = fd_null;
+
       fd_null = 0;
 
       if (S_ISSOCK(file->f_path.dentry->d_inode->i_mode))
       {
         if (file == socket_file)
+        {
+#ifdef DEBUG
+          printk(KERN_INFO "douane:%d:%s: fd_null_max: %d | MAX_FD_NULL: %d\n",
+            __LINE__, __FUNCTION__, fd_null_max, MAX_FD_NULL);
+#endif
           return true;
+        }
       }
     } else {
       fd_null++;
 
-      if (fd_null >= 3)
+      if (fd_null >= MAX_FD_NULL)
         iterating_fd = 0;
     }
 
