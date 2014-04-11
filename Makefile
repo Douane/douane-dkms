@@ -32,7 +32,7 @@ ifeq ($(M),)
 	M=.
 endif
 # Get the version from the VERSION file
-MODULE_VERSION=$(shell cat $M/VERSION)
+MODULE_VERSION=$(shell grep 'PACKAGE_VERSION' dkms.conf | cut -f2 -d'=' | tr -d '"')
 # Objects to compile when calling make
 obj-m += douane.o
 # Where the module source will be placed before to call dkms add, build and install
@@ -78,7 +78,6 @@ dkms:
 	@cp `pwd`/douane.c $(DKMS_ROOT_PATH)
 	@cp `pwd`/Makefile $(DKMS_ROOT_PATH)
 	@cp `pwd`/network_activity_message.h $(DKMS_ROOT_PATH)
-	@cp `pwd`/VERSION $(DKMS_ROOT_PATH)
 	@dkms add -m $(MODULE_NAME) -v $(MODULE_VERSION)
 	@dkms build -m $(MODULE_NAME) -v $(MODULE_VERSION)
 	@dkms install --force -m $(MODULE_NAME) -v $(MODULE_VERSION)
