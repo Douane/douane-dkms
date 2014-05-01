@@ -40,9 +40,9 @@ DKMS_ROOT_PATH=/usr/src/$(MODULE_NAME)-$(MODULE_VERSION)
 # Check if the module is loaded or not
 MODPROBE_OUTPUT=$(shell lsmod | grep douane)
 # Compilation flags
-EXTRA_CFLAGS=-g -DDOUANE_VERSION=\"$(MODULE_VERSION)\"
+# EXTRA_CFLAGS=-g -DDOUANE_VERSION=\"$(MODULE_VERSION)\"
 # Compilation flags with debug
-# EXTRA_CFLAGS=-g -DDOUANE_VERSION=\"$(MODULE_VERSION)\" -DDEBUG
+EXTRA_CFLAGS=-g2 -DDOUANE_VERSION=\"$(MODULE_VERSION)\" -DDEBUG -O0 -fno-omit-frame-pointer 
 
 ifeq ($(KERNEL_VERSION),)
 KERNEL_VERSION=$(shell uname -r)
