@@ -689,26 +689,26 @@ static char * task_exe_path(struct task_struct * task, char * buff)
     {
       if (locked_task->mm->exe_file)
       {
-        // Get process path using d_path()
-        // d_path() suffix the path with " (deleted)" when the file is still accessed
-        // and the deletion of the file has been requested.
+        /* Get process path using d_path()
+         * d_path() suffix the path with " (deleted)" when the file is still accessed
+         * and the deletion of the file has been requested.
+	 */
         strcpy(buff, d_path(&locked_task->mm->exe_file->f_path, tmpbuf, PATH_LENGTH));
 
         task_unlock(locked_task);
 
-        // Remove the deleted suffix if present
+        /* Remove the deleted suffix if present */
         if ((deleted_position = index_of(buff, " (deleted)")) > 0)
         {
-          // Clean temp buffer in order to reuse it
+          /* Clean temp buffer in order to reuse it */
           memset(&tmpbuf[0], 0, PATH_LENGTH);
-          // Copy the current buffer in the temp buffer
+          /* Copy the current buffer in the temp buffer */
           strcpy(tmpbuf, buff);
-          // Clean the current buffer
+          /* Clean the current buffer */
           memset(&buff[0], 0, PATH_LENGTH);
-          // Copy the path without the " (deleted)" suffix
+          /* Copy the path without the " (deleted)" suffix */
           strncpy(buff, tmpbuf, deleted_position);
         }
-
         break;
       }
     }
