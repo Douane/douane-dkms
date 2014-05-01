@@ -443,6 +443,7 @@ static int push(const struct network_activity *activity)
   if (activities_socket == NULL)
   {
     printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: Socket not connected!!.\n", __LINE__, __FUNCTION__);
+    kfree_skb(skb);
     return -1;
   }
 
@@ -458,6 +459,7 @@ static int push(const struct network_activity *activity)
       daemon_pid = 0;
       blackout();
     }
+    kfree_skb(skb);
     return ret;
   } else {
     return 0;
