@@ -778,7 +778,11 @@ static void print_tcp_packet(const struct tcphdr * tcp_header, const struct iphd
 /*
 **  Netfiler hook
 */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
 static unsigned int netfiler_packet_hook(unsigned int hooknum,
+#else
+static unsigned int netfiler_packet_hook(const struct nf_hook_ops *ops,
+#endif
                      struct sk_buff *skb,
                      const struct net_device *in,
                      const struct net_device *out,
