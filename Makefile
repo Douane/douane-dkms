@@ -44,14 +44,17 @@ EXTRA_CFLAGS=-g -DDOUANE_VERSION=\"$(MODULE_VERSION)\"
 # Compilation flags with debug
 # EXTRA_CFLAGS=-g -DDOUANE_VERSION=\"$(MODULE_VERSION)\" -DDEBUG
 
+ifeq ($(KERNEL_VERSION),)
+KERNEL_VERSION=$(shell uname -r)
+endif
 
 # make
 all:
-	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules
+	$(MAKE) -C /lib/modules/$(KERNEL_VERSION)/build M=$(PWD) modules
 
 # make clean
 clean:
-	$(MAKE) -C /lib/modules/$(shell uname -r)/build M=$(PWD) clean
+	$(MAKE) -C /lib/modules/$(KERNEL_VERSION)/build M=$(PWD) clean
 
 # make install (While developing, without using DKMS)
 install:
