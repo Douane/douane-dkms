@@ -408,6 +408,12 @@ static int push(const struct network_activity *activity)
   struct sk_buff *  skb = NULL;
   int               ret = 0;
 
+  if (activities_socket == NULL)
+  {
+    printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: Socket not connected!!.\n", __LINE__, __FUNCTION__);
+    return -1;
+  }
+
   // If no process_path don't send the network_activity message to the daemon
   if (activity->process_path == NULL || strcmp(activity->process_path, "") == 0)
   {
@@ -441,14 +447,7 @@ static int push(const struct network_activity *activity)
 
   nlh->nlmsg_flags = NLM_F_REQUEST; // Must be set on all request messages.
 
-  if (activities_socket == NULL)
-  {
-    printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: Socket not connected!!.\n", __LINE__, __FUNCTION__);
-    if (skb)
-      nlmsg_free(skb);
-    return -1;
-  }
-
+  
   // netlink_unicast() takes ownership of the skb and frees it itself.
   ret = netlink_unicast(activities_socket, skb, daemon_pid, MSG_DONTWAIT);
   if (ret <= 0)
