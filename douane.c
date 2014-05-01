@@ -49,7 +49,7 @@ enum nf_ip_hook_priorities {
 MODULE_DESCRIPTION("Douane");
 MODULE_AUTHOR("Guillaume Hain <zedtux@zedroot.org>");
 MODULE_VERSION(DOUANE_VERSION);
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL v2");
 
 
 #define PATH_LENGTH 129
