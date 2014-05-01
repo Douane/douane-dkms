@@ -415,7 +415,7 @@ static int push(const struct network_activity *activity)
     return 0;
   }
 
-  skb = alloc_skb(NLMSG_SPACE(sizeof(struct network_activity)), GFP_ATOMIC);
+  skb = nlmsg_new(NLMSG_ALIGN(sizeof(struct network_activity)) + nla_total_size(1), GFP_KERNEL);
   if (skb == NULL)
   {
     printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: Failed to allocate new socket buffer.\n", __LINE__, __FUNCTION__);
