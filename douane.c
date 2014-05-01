@@ -459,7 +459,6 @@ static int push(const struct network_activity *activity)
       daemon_pid = 0;
       blackout();
     }
-    kfree_skb(skb);
     return ret;
   } else {
     return 0;
