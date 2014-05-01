@@ -846,6 +846,7 @@ static unsigned int netfiler_packet_hook(unsigned int hooknum,
       if (udp_header == NULL)
       {
         printk(KERN_ERR "douane:%d:%s: !!OOPS!! udp_header is NULL. !!OOPS!!\n", __LINE__, __FUNCTION__);
+	kfree(activity);
         return NF_ACCEPT;
       }
       // Getting source and destination ports
@@ -864,6 +865,7 @@ static unsigned int netfiler_packet_hook(unsigned int hooknum,
       if (tcp_header == NULL)
       {
         printk(KERN_ERR "douane:%d:%s: !!OOPS!! tcp_header is NULL. !!OOPS!!\n", __LINE__, __FUNCTION__);
+	kfree(activity);
         return NF_ACCEPT;
       }
       // Getting source and destination ports
