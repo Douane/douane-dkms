@@ -405,7 +405,7 @@ pid_t                 daemon_pid;               // User space running daemon
 static int push(const struct network_activity *activity)
 {
   struct nlmsghdr * nlh;
-  struct sk_buff *  skb = NULL;
+  struct sk_buff *  skb;
   int               ret = 0;
 
   if (activities_socket == NULL)
@@ -447,7 +447,6 @@ static int push(const struct network_activity *activity)
 
   nlh->nlmsg_flags = NLM_F_REQUEST; // Must be set on all request messages.
 
-  
   // netlink_unicast() takes ownership of the skb and frees it itself.
   ret = netlink_unicast(activities_socket, skb, daemon_pid, MSG_DONTWAIT);
   if (ret <= 0)
