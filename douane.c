@@ -406,7 +406,7 @@ static int push(const struct network_activity *activity)
 {
   struct nlmsghdr * nlh;
   struct sk_buff *  skb;
-  int               ret = 0;
+  int               ret;
 
   if (activities_socket == NULL)
   {
@@ -448,19 +448,15 @@ static int push(const struct network_activity *activity)
   nlh->nlmsg_flags = NLM_F_REQUEST; // Must be set on all request messages.
 
   // netlink_unicast() takes ownership of the skb and frees it itself.
-  ret = netlink_unicast(activities_socket, skb, daemon_pid, MSG_DONTWAIT);
-  if (ret <= 0)
-  {
-    if (ret == -11)
-    {
-      printk(KERN_WARNING "douane:%d:%s: Message ignored as Netfiler socket is busy.\n", __LINE__, __FUNCTION__);
+  ret = nlmsg_unicast(activities_socket, skb, daemon_pid);
+  if (ret < 0) {
+    if (ret == -11) {
+	printk(KERN_WARNING "douane:%d:%s: Message ignored as Netfiler socket is busy.\n", __LINE__, __FUNCTION__);
     } else {
-      printk(KERN_ERR "douane:%d:%s: Failed to send message (errno: %d).\n", __LINE__, __FUNCTION__, ret);
-      daemon_pid = 0;
-      blackout();
+      	printk(KERN_ERR "douane:%d:%s: Failed to send message (errno: %d).\n", __LINE__, __FUNCTION__, ret);
+      	daemon_pid = 0;
+      	blackout();
     }
-    if (skb)
-      kfree_skb(skb);
     return ret;
   } else {
     return 0;
