@@ -405,8 +405,14 @@ pid_t                 daemon_pid;               // User space running daemon
 static int push(const struct network_activity *activity)
 {
   struct nlmsghdr * nlh;
-  struct sk_buff *  skb = NULL;
+  struct sk_buff *  skb;
   int               ret = 0;
+
+  if (activities_socket == NULL)
+  {
+    printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: Socket not connected!!.\n", __LINE__, __FUNCTION__);
+    return -1;
+  }
 
   // If no process_path don't send the network_activity message to the daemon
   if (activity->process_path == NULL || strcmp(activity->process_path, "") == 0)
@@ -415,20 +421,21 @@ static int push(const struct network_activity *activity)
     return 0;
   }
 
-  skb = alloc_skb(NLMSG_SPACE(sizeof(struct network_activity)), GFP_ATOMIC);
+  skb = nlmsg_new(NLMSG_SPACE(sizeof(struct network_activity)), GFP_KERNEL);
   if (skb == NULL)
   {
     printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: Failed to allocate new socket buffer.\n", __LINE__, __FUNCTION__);
-    return -1;
+    return -ENOMEM;
   }
 
   nlh = nlmsg_put(skb, 0, 0, NLMSG_DONE, sizeof(struct network_activity), 0);
   if (nlh == NULL)
   {
     if (skb)
-      kfree_skb(skb);
+       nlmsg_free(skb);
+
     printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: nlmsg_put failed.\n", __LINE__, __FUNCTION__);
-    return -1;
+    return -EMSGSIZE;
   }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
@@ -440,17 +447,9 @@ static int push(const struct network_activity *activity)
 
   nlh->nlmsg_flags = NLM_F_REQUEST; // Must be set on all request messages.
 
-  if (activities_socket == NULL)
-  {
-    printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: Socket not connected!!.\n", __LINE__, __FUNCTION__);
-    if (skb)
-      kfree_skb(skb);
-    return -1;
-  }
-
   // netlink_unicast() takes ownership of the skb and frees it itself.
   ret = netlink_unicast(activities_socket, skb, daemon_pid, MSG_DONTWAIT);
-  if (ret < 0)
+  if (ret <= 0)
   {
     if (ret == -11)
     {
@@ -780,7 +779,11 @@ static void print_tcp_packet(const struct tcphdr * tcp_header, const struct iphd
 /*
 **  Netfiler hook
 */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 13, 0)
 static unsigned int netfiler_packet_hook(unsigned int hooknum,
+#else
+static unsigned int netfiler_packet_hook(const struct nf_hook_ops *ops,
+#endif
                      struct sk_buff *skb,
                      const struct net_device *in,
                      const struct net_device *out,
