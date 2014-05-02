@@ -457,8 +457,7 @@ static int push(const struct network_activity *activity)
 		return 0;
 	}
 
-	skb =
-		nlmsg_new(NLMSG_SPACE(sizeof(struct network_activity)), GFP_KERNEL);
+	skb = nlmsg_new(NLMSG_SPACE(sizeof(struct network_activity)), GFP_KERNEL);
 	if (skb == NULL) {
 		printk(KERN_ERR
 			"douane:%d:%s: BLOCKED PUSH: Failed to allocate new socket buffer.\n",
@@ -466,16 +465,10 @@ static int push(const struct network_activity *activity)
 		return -ENOMEM;
 	}
 
-	nlh =
-		nlmsg_put(skb, 0, 0, NLMSG_DONE, sizeof(struct network_activity),
-		0);
+	nlh = nlmsg_put(skb, 0, 0, NLMSG_DONE, sizeof(struct network_activity),	0);
 	if (nlh == NULL) {
-		if (skb)
-			nlmsg_free(skb);
-
-		printk(KERN_ERR
-			"douane:%d:%s: BLOCKED PUSH: nlmsg_put failed.\n",
-			__LINE__, __FUNCTION__);
+		nlmsg_free(skb);
+		printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: nlmsg_put failed.\n", __LINE__, __FUNCTION__);
 		return -EMSGSIZE;
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
@@ -488,8 +481,9 @@ static int push(const struct network_activity *activity)
 	nlh->nlmsg_flags = NLM_F_REQUEST; /* Must be set on all request messages. */
 
 	/* netlink_unicast() takes ownership of the skb and frees it itself. */
-
+	spin_lock(&push_lock);
 	ret = nlmsg_unicast(activities_socket, skb, daemon_pid);
+	spin_unlock(&push_lock);
 	if (ret < 0) {
 		if (ret == -11) {
 			printk(KERN_WARNING
@@ -841,7 +835,7 @@ static unsigned int netfiler_packet_hook(const struct nf_hook_ops *ops,
 {
 	struct iphdr *ip_header;
 	struct udphdr *udp_header;
-	struct tcphdr *tcp_header;
+	struct tcphdr *tcp_header = NULL;
 	struct network_activity *activity = (struct network_activity *) kzalloc(sizeof(struct network_activity), GFP_KERNEL);
 	struct rule *rule = NULL;
 	struct task_struct *task = NULL;
@@ -942,11 +936,9 @@ static unsigned int netfiler_packet_hook(const struct nf_hook_ops *ops,
 	default:
 	{
 #ifdef DEBUG
-		printk(KERN_INFO
-			"douane:%d:%s: [UNKOWN(%d)] %s -> %s\n",
-			__LINE__, __FUNCTION__,
-			ip_header->protocol, ip_source,
-			ip_destination);
+		printk(KERN_INFO "douane:%d:%s: [UNKOWN(%d)] %s -> %s\n",
+			__LINE__, __FUNCTION__, ip_header->protocol, 
+			ip_source, ip_destination);
 #endif
 		kfree(activity);
 		return NF_ACCEPT;
@@ -989,38 +981,20 @@ static unsigned int netfiler_packet_hook(const struct nf_hook_ops *ops,
 						ntohl
 						(tcp_header->seq));
 
-					task =
-						get_pid_task(find_get_pid
-						(task_info->pid),
-						PIDTYPE_PID);
+					task = 	get_pid_task(find_get_pid(task_info->pid),
+							PIDTYPE_PID);
 					if (task) {
 						rcu_read_lock();
-						task_has_file_opened =
-							task_has_open_file
-							(task,
-							skb->
-							sk->sk_socket->
-							file);
+						task_has_file_opened = task_has_open_file(task, skb->sk->sk_socket->file);
 						rcu_read_unlock();
-
 						if (task_has_file_opened) {
-							strcpy
-								(process_owner_path,
-								task_info->process_path);
+							strcpy(process_owner_path, task_info->process_path);
 						} else {
 							/* For all non TCP packet and for TCP packet (except packets flaged as FIN) */
-							if (tcp_header
-								== NULL
-								||
-								(tcp_header
-								&&
-								tcp_header->fin
-								==
-								false)) {
-								task_with_open_file
-									=
-									find_task_from_socket_file
-									(skb->sk->sk_socket->file);
+							if (tcp_header == NULL ||
+								(tcp_header && 	tcp_header->fin == false)) {
+								task_with_open_file = 
+								find_task_from_socket_file(skb->sk->sk_socket->file);
 								if (task_with_open_file) {
 									/* The task is no more owning the passed socket file
 									 * so we can forget the relation task <-> socket file */
@@ -1135,12 +1109,9 @@ static unsigned int netfiler_packet_hook(const struct nf_hook_ops *ops,
 
 	if (lookup_from_socket_sequence) {
 		if (tcp_header) {
-			task_info =
-				task_info_from_sequence(ntohl
-				(tcp_header->seq));
+			task_info = task_info_from_sequence(ntohl(tcp_header->seq));
 			if (task_info) {
-				strcpy(process_owner_path,
-					task_info->process_path);
+				strcpy(process_owner_path, task_info->process_path);
 #ifdef DEBUG
 			} else {
 				printk(KERN_ERR
@@ -1201,9 +1172,8 @@ static unsigned int netfiler_packet_hook(const struct nf_hook_ops *ops,
 	activity->size = skb->len;
 
 	/* Push the activity to the daemon process */
-	spin_lock(&push_lock);
+
 	ret = push(activity);
-	spin_unlock(&push_lock);
 	if (ret < 0)
 		printk(KERN_ERR
 		"douane:%d:%s: Something prevent to sent the network activity.\n",
