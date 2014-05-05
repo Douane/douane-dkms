@@ -471,19 +471,19 @@ static int push(const struct network_activity *activity)
 		printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: nlmsg_put failed.\n", __LINE__, __FUNCTION__);
 		return -EMSGSIZE;
 	}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
-	NETLINK_CB(skb).portid = 0; /* from kernel */
-#else
-	NETLINK_CB(skb).pid = 0; /* from kernel */
-#endif
-	memcpy(NLMSG_DATA(nlh), activity, sizeof(struct network_activity));
 
+	NETLINK_CB(skb).portid = 0; /* from kernel */
+	memcpy(NLMSG_DATA(nlh), activity, sizeof(struct network_activity));
 	nlh->nlmsg_flags = NLM_F_REQUEST; /* Must be set on all request messages. */
+
+	/* Finalize a netlink message */
+	nlmsg_end(skb, nlh);
 
 	/* netlink_unicast() takes ownership of the skb and frees it itself. */
 	spin_lock(&push_lock);
 	ret = nlmsg_unicast(activities_socket, skb, daemon_pid);
 	spin_unlock(&push_lock);
+
 	if (ret < 0) {
 		if (ret == -11) {
 			printk(KERN_WARNING
@@ -497,9 +497,8 @@ static int push(const struct network_activity *activity)
 			blackout();
 		}
 		return ret;
-	} else {
-		return 0;
 	}
+	return 0;
 }
 
 static int initialize_activities_socket(void);
