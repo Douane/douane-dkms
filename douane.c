@@ -778,11 +778,15 @@ static void print_tcp_packet(const struct tcphdr * tcp_header, const struct iphd
 /*
 **  Netfiler hook
 */
-static unsigned int netfiler_packet_hook(unsigned int hooknum,
-                     struct sk_buff *skb,
-                     const struct net_device *in,
-                     const struct net_device *out,
-                     int (*okfn) (struct sk_buff *))
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,13,0)
+static unsigned int netfiler_packet_hook(unsigned int hook, struct sk_buff *skb, const struct net_device *in, const struct net_device *out, int (*okfn)(struct sk_buff *skb))
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+static unsigned int netfiler_packet_hook(const struct nf_hook_ops *ops, struct sk_buff *skb, const struct net_device *in, const struct net_device *out, int (*okfn)(struct sk_buff *skb))
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
+static unsigned int netfiler_packet_hook(const struct nf_hook_ops *ops, struct sk_buff *skb, const struct nf_hook_state *state)
+#else
+static unsigned int netfiler_packet_hook(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
+#endif
 {
   struct iphdr *                ip_header = NULL;
   struct udphdr *               udp_header = NULL;
@@ -1062,7 +1066,9 @@ static unsigned int netfiler_packet_hook(unsigned int hooknum,
   **  Building new network_activity message
   */
   strcpy(activity->process_path, process_owner_path);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
   strcpy(activity->devise_name, out->name);
+#endif
   activity->protocol = ip_header->protocol;
   strcpy(activity->ip_source, ip_source);
   activity->port_source = sport;
@@ -1116,7 +1122,9 @@ static struct nf_hook_ops nfho_outgoing = {
   .hooknum  = NF_IP_LOCAL_OUT,
   .pf       = NFPROTO_IPV4,
   .priority = NF_IP_PRI_LAST,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
   .owner    = THIS_MODULE
+#endif
 };
 
 
