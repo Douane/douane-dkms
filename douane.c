@@ -1068,6 +1068,8 @@ static unsigned int netfiler_packet_hook(void *priv, struct sk_buff *skb, const 
   strcpy(activity->process_path, process_owner_path);
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
   strcpy(activity->devise_name, out->name);
+#elif
+  strcpy(activity->devise_name, state->out->name);
 #endif
   activity->protocol = ip_header->protocol;
   strcpy(activity->ip_source, ip_source);
