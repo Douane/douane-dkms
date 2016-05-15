@@ -904,7 +904,11 @@ static unsigned int netfiler_packet_hook(void *priv, struct sk_buff *skb, const 
   *   Creating a socket in the userspace create a file that is added
   *   in the list of process opened files (On Linux everything is a file).
   */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+  if (skb->sk && skb->sk->sk_state != TCP_TIME_WAIT)
+#else
   if (skb->sk && skb->sk->sk_state != TCP_TIME_WAIT && skb->sk->sk_state != TCP_NEW_SYN_RECV)
+#endif
   {
     if (skb->sk->sk_socket)
     {
