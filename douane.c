@@ -904,114 +904,121 @@ static unsigned int netfiler_packet_hook(void *priv, struct sk_buff *skb, const 
   *   Creating a socket in the userspace create a file that is added
   *   in the list of process opened files (On Linux everything is a file).
   */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
-  if (skb->sk && skb->sk->sk_state != TCP_TIME_WAIT)
-#else
-  if (skb->sk && skb->sk->sk_state != TCP_TIME_WAIT && skb->sk->sk_state != TCP_NEW_SYN_RECV)
-#endif
+  if (skb->sk)
   {
-    if (skb->sk->sk_socket)
+#define GOOD_STATES (	\
+	(1<<TCP_LISTEN) | (1<<TCP_SYN_RECV)   | (1<<TCP_SYN_SENT)   | \
+	(1<<TCP_ESTABLISHED)  | (1<<TCP_FIN_WAIT1) | (1<<TCP_FIN_WAIT2) )
+	// surely exclude TCP_CLOSE, TCP_TIME_WAIT, TCP_LAST_ACK
+	// uncertain TCP_CLOSE_WAIT and TCP_CLOSING
+    if ((1<<skb->sk->sk_state) & GOOD_STATES)
     {
-      if (skb->sk->sk_socket->file)
+      read_lock_bh(&skb->sk->sk_callback_lock);
+      if (skb->sk->sk_socket)
       {
-        /*
-        ** The current packet is filterable as we have the socket file
-        */
-        filterable = true;
+        if (skb->sk->sk_socket->file)
+        {
+          /*
+          ** The current packet is filterable as we have the socket file
+          */
+          filterable = true;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
-        socket_file_ino = skb->sk->sk_socket->file->f_inode->i_ino;
+          socket_file_ino = skb->sk->sk_socket->file->f_inode->i_ino;
 #else
-        socket_file_ino = skb->sk->sk_socket->file->f_dentry->d_inode->i_ino;
+          socket_file_ino = skb->sk->sk_socket->file->f_dentry->d_inode->i_ino;
 #endif
 
-        task_info = task_info_from_open_file_inode(socket_file_ino);
-        if (task_info)
-        {
-          if (tcp_header)
-            update_task_info_sequence(socket_file_ino, ntohl(tcp_header->seq));
-
-          task = get_pid_task(find_get_pid(task_info->pid), PIDTYPE_PID);
-          if (task)
+          task_info = task_info_from_open_file_inode(socket_file_ino);
+          if (task_info)
           {
-            rcu_read_lock();
-            task_has_file_opened = task_has_open_file(task, skb->sk->sk_socket->file);
-            rcu_read_unlock();
+            if (tcp_header)
+              update_task_info_sequence(socket_file_ino, ntohl(tcp_header->seq));
 
-            if (task_has_file_opened)
+            task = get_pid_task(find_get_pid(task_info->pid), PIDTYPE_PID);
+            if (task)
             {
-              strcpy(process_owner_path, task_info->process_path);
-            } else {
-              // For all non TCP packet and for TCP packet (except packets flaged as FIN)
-              if (tcp_header == NULL || (tcp_header && tcp_header->fin == false))
+              rcu_read_lock();
+              task_has_file_opened = task_has_open_file(task, skb->sk->sk_socket->file);
+              rcu_read_unlock();
+
+              if (task_has_file_opened)
               {
-                task_with_open_file = find_task_from_socket_file(skb->sk->sk_socket->file);
-                if (task_with_open_file)
+                strcpy(process_owner_path, task_info->process_path);
+              } else {
+              // For all non TCP packet and for TCP packet (except packets flaged as FIN)
+                if (tcp_header == NULL || (tcp_header && tcp_header->fin == false))
                 {
-                  // The task is no more owning the passed socket file
-                  // so we can forget the relation task <-> socket file
-                  forget_process_socket_inode(task->pid, socket_file_ino);
-
-                  strcpy(process_owner_path, task_exe_path(task_with_open_file, buffer));
-
-                  if (tcp_header)
+                  task_with_open_file = find_task_from_socket_file(skb->sk->sk_socket->file);
+                  if (task_with_open_file)
                   {
-                    // Remember relation task <-> socket file
-                    remember_process_socket_inode(task_with_open_file->pid, ntohl(tcp_header->seq), socket_file_ino, process_owner_path);
+                    // The task is no more owning the passed socket file
+                    // so we can forget the relation task <-> socket file
+                    forget_process_socket_inode(task->pid, socket_file_ino);
+
+                    strcpy(process_owner_path, task_exe_path(task_with_open_file, buffer));
+
+                    if (tcp_header)
+                    {
+                      // Remember relation task <-> socket file
+                      remember_process_socket_inode(task_with_open_file->pid, ntohl(tcp_header->seq), socket_file_ino, process_owner_path);
+                    } else {
+                      // Remember relation task <-> socket file
+                      remember_process_socket_inode(task_with_open_file->pid, 0, socket_file_ino, process_owner_path);
+                    }
                   } else {
-                    // Remember relation task <-> socket file
-                    remember_process_socket_inode(task_with_open_file->pid, 0, socket_file_ino, process_owner_path);
+                    // The current packet is a ACK packet after a FIN
+                    strcpy(process_owner_path, task_info->process_path);
                   }
+                // Only for TCP packets flaged as FIN
                 } else {
-                  // The current packet is a ACK packet after a FIN
                   strcpy(process_owner_path, task_info->process_path);
                 }
-              // Only for TCP packets flaged as FIN
-              } else {
-                strcpy(process_owner_path, task_info->process_path);
               }
-            }
 #ifdef DEBUG
-          } else {
-            // Task no more exists
-            printk(KERN_INFO "douane:%d:%s: !!OOO!! Task no more exists. !!OOO!!\n", __LINE__, __FUNCTION__);
-#endif
-          }
-        } else {
-          task = find_task_from_socket_file(skb->sk->sk_socket->file);
-          if (task)
-          {
-            strcpy(process_owner_path, task_exe_path(task, buffer));
-            if (tcp_header)
-            {
-              // Remember relation task <-> socket file
-              remember_process_socket_inode(task->pid, ntohl(tcp_header->seq), socket_file_ino, process_owner_path);
             } else {
-              // Remember relation task <-> socket file
-              remember_process_socket_inode(task->pid, 0, socket_file_ino, process_owner_path);
-            }
-#ifdef DEBUG
-          } else {
-            printk(KERN_WARNING "douane:%d:%s: !!OOPS!! Don't know and can't find a task for socket file inode number %ld !!OOPS!!\n", __LINE__, __FUNCTION__, socket_file_ino);
+              // Task no more exists
+              printk(KERN_INFO "douane:%d:%s: !!OOO!! Task no more exists. !!OOO!!\n", __LINE__, __FUNCTION__);
 #endif
+            }
+          } else {
+            task = find_task_from_socket_file(skb->sk->sk_socket->file);
+            if (task)
+            {
+              strcpy(process_owner_path, task_exe_path(task, buffer));
+              if (tcp_header)
+              {
+                // Remember relation task <-> socket file
+                remember_process_socket_inode(task->pid, ntohl(tcp_header->seq), socket_file_ino, process_owner_path);
+              } else {
+                // Remember relation task <-> socket file
+                remember_process_socket_inode(task->pid, 0, socket_file_ino, process_owner_path);
+              }
+#ifdef DEBUG
+            } else {
+              printk(KERN_WARNING "douane:%d:%s: !!OOPS!! Don't know and can't find a task for socket file inode number %ld !!OOPS!!\n", __LINE__, __FUNCTION__, socket_file_ino);
+#endif
+            }
           }
-        }
 
+        } else {
+#ifdef DEBUG
+          printk(KERN_WARNING "douane:%d:%s: !!WARN WARN WARN!! skb->sk->sk_socket->file is NULL. !!WARN WARN WARN!!\n", __LINE__, __FUNCTION__);
+#endif
+          lookup_from_socket_sequence = true;
+        }
       } else {
 #ifdef DEBUG
-        printk(KERN_WARNING "douane:%d:%s: !!WARN WARN WARN!! skb->sk->sk_socket->file is NULL. !!WARN WARN WARN!!\n", __LINE__, __FUNCTION__);
+        printk(KERN_WARNING "douane:%d:%s: !!WARN WARN WARN!! skb->sk->sk_socket is NULL. !!WARN WARN WARN!!\n", __LINE__, __FUNCTION__);
 #endif
         lookup_from_socket_sequence = true;
       }
-    } else {
-#ifdef DEBUG
-      printk(KERN_WARNING "douane:%d:%s: !!WARN WARN WARN!! skb->sk->sk_socket is NULL. !!WARN WARN WARN!!\n", __LINE__, __FUNCTION__);
-#endif
-      lookup_from_socket_sequence = true;
+      read_unlock_bh(&skb->sk->sk_callback_lock);
     }
+#undef GOOD_STATES
   } else {
 #ifdef DEBUG
-    printk(KERN_WARNING "douane:%d:%s: !!WARN WARN WARN!! skb->sk is NULL. !!WARN WARN WARN!!\n", __LINE__, __FUNCTION__);
+  printk(KERN_WARNING "douane:%d:%s: !!WARN WARN WARN!! skb->sk is NULL. !!WARN WARN WARN!!\n", __LINE__, __FUNCTION__);
 #endif
     lookup_from_socket_sequence = true;
   }
