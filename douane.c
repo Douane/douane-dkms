@@ -676,7 +676,7 @@ static bool task_has_open_file(const struct task_struct * task, const struct fil
 static char * task_exe_path(struct task_struct * task, char * buff)
 {
   struct task_struct *  locked_task = task;
-  char                  tmpbuf[PATH_LENGTH];
+  char                  tmpbuf[PATH_MAX+11];
   int                   deleted_position;
 
   if (task == NULL)
@@ -695,7 +695,7 @@ static char * task_exe_path(struct task_struct * task, char * buff)
         // Get process path using d_path()
         // d_path() suffix the path with " (deleted)" when the file is still accessed
         // and the deletion of the file has been requested.
-        strcpy(buff, d_path(&locked_task->mm->exe_file->f_path, tmpbuf, PATH_LENGTH));
+        strncpy(buff, d_path(&locked_task->mm->exe_file->f_path, tmpbuf, PATH_MAX+11), PATH_LENGTH);
 
         task_unlock(locked_task);
 
