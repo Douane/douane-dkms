@@ -676,13 +676,15 @@ static bool task_has_open_file(const struct task_struct * task, const struct fil
 static char * task_exe_path(struct task_struct * task, char * buff)
 {
   struct task_struct *  locked_task = task;
-  char                  tmpbuf[PATH_MAX+11];
+  char                  *pathbuf, *p;
   int                   deleted_position;
 
   if (task == NULL)
     return NULL;
 
   rcu_read_lock();
+
+  pathbuf = kmalloc(PATH_MAX, GFP_KERNEL);
 
   do
   {
@@ -695,30 +697,46 @@ static char * task_exe_path(struct task_struct * task, char * buff)
         // Get process path using d_path()
         // d_path() suffix the path with " (deleted)" when the file is still accessed
         // and the deletion of the file has been requested.
-        strncpy(buff, d_path(&locked_task->mm->exe_file->f_path, tmpbuf, PATH_MAX+11), PATH_LENGTH);
 
-        task_unlock(locked_task);
-
-        // Remove the deleted suffix if present
-        if ((deleted_position = index_of(buff, " (deleted)")) > 0)
+        p = NULL;
+        if (pathbuf)
         {
-          // Clean temp buffer in order to reuse it
-          memset(&tmpbuf[0], 0, PATH_LENGTH);
-          // Copy the current buffer in the temp buffer
-          strcpy(tmpbuf, buff);
-          // Clean the current buffer
-          memset(&buff[0], 0, PATH_LENGTH);
-          // Copy the path without the " (deleted)" suffix
-          strncpy(buff, tmpbuf, deleted_position);
-        }
+          p = d_path(&locked_task->mm->exe_file->f_path, pathbuf, PATH_MAX);
+          if (IS_ERR(p))
+          {
+            p = NULL;
+            printk(KERN_INFO "douane:%d:%s: d_path return ERROR\n", __LINE__, __FUNCTION__);
+          } else {
 
-        break;
+            strcpy(buff, p);
+
+            task_unlock(locked_task);
+
+            // Remove the deleted suffix if present
+            if ((deleted_position = index_of(buff, " (deleted)")) > 0)
+            {
+              // Clean temp buffer in order to reuse it
+              memset(&pathbuf[0], 0, PATH_MAX);
+              // Copy the current buffer in the temp buffer
+              strcpy(pathbuf, buff);
+              // Clean the current buffer
+              memset(&pathbuf[0], 0, PATH_MAX);
+              // Copy the path without the " (deleted)" suffix
+              strncpy(buff, pathbuf, deleted_position);
+            }
+
+            break;
+          }
+        } else
+        printk(KERN_INFO "douane:%d:%s: Cannot allocate pathbuf\n", __LINE__, __FUNCTION__);
       }
     }
 
     task_unlock(locked_task);
 
   } while_each_thread(task, locked_task);
+
+  kfree(pathbuf);
 
   rcu_read_unlock();
 
