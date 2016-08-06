@@ -684,52 +684,52 @@ static char * task_exe_path(struct task_struct * task, char * buff)
 
   rcu_read_lock();
 
-  pathbuf = kmalloc(PATH_MAX, GFP_KERNEL);
+  pathbuf = kmalloc(PATH_MAX+10, GFP_KERNEL);
 
   do
   {
     task_lock(locked_task);
 
-    if (likely(locked_task->mm))
+    if (likely(locked_task->mm) && locked_task->mm->exe_file)
     {
-      if (locked_task->mm->exe_file)
+      // Get process path using d_path()
+      // d_path() suffix the path with " (deleted)" when the file is still accessed
+      // and the deletion of the file has been requested.
+
+      p = NULL;
+      if (pathbuf)
       {
-        // Get process path using d_path()
-        // d_path() suffix the path with " (deleted)" when the file is still accessed
-        // and the deletion of the file has been requested.
-
-        p = NULL;
-        if (pathbuf)
+        // The result of d_path is maximum PATH_MAX with " (deleted)" string
+        p = d_path(&locked_task->mm->exe_file->f_path, pathbuf, PATH_MAX+10);
+        if (IS_ERR(p))
         {
-          p = d_path(&locked_task->mm->exe_file->f_path, pathbuf, PATH_MAX);
-          if (IS_ERR(p))
+          p = NULL;
+          printk(KERN_INFO "douane:%d:%s: d_path return ERROR\n", __LINE__, __FUNCTION__);
+        } else {
+
+          strcpy(buff, p);
+
+          task_unlock(locked_task);
+
+          // Remove the deleted suffix if present
+          if ((deleted_position = index_of(buff, " (deleted)")) > 0)
           {
-            p = NULL;
-            printk(KERN_INFO "douane:%d:%s: d_path return ERROR\n", __LINE__, __FUNCTION__);
-          } else {
-
-            strcpy(buff, p);
-
-            task_unlock(locked_task);
-
-            // Remove the deleted suffix if present
-            if ((deleted_position = index_of(buff, " (deleted)")) > 0)
-            {
-              // Clean temp buffer in order to reuse it
-              memset(&pathbuf[0], 0, PATH_MAX);
-              // Copy the current buffer in the temp buffer
-              strcpy(pathbuf, buff);
-              // Clean the current buffer
-              memset(&pathbuf[0], 0, PATH_MAX);
-              // Copy the path without the " (deleted)" suffix
-              strncpy(buff, pathbuf, deleted_position);
-            }
-
-            break;
+            // Clean temp buffer in order to reuse it
+            memset(&pathbuf[0], 0, PATH_MAX+10);
+            // Copy the current buffer in the temp buffer
+            // Truncate PATH_MAX to PATH_LENGTH
+            // TODO : send the full path length to douane service
+            strncpy(pathbuf, buff, PATH_LENGTH);
+            // Clean the current buffer
+            memset(&pathbuf[0], 0, PATH_LENGTH);
+            // Copy the path without the " (deleted)" suffix
+            strncpy(buff, pathbuf, deleted_position);
           }
-        } else
-        printk(KERN_INFO "douane:%d:%s: Cannot allocate pathbuf\n", __LINE__, __FUNCTION__);
-      }
+
+          break;
+        }
+      } else
+      printk(KERN_INFO "douane:%d:%s: Cannot allocate pathbuf\n", __LINE__, __FUNCTION__);
     }
 
     task_unlock(locked_task);
