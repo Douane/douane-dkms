@@ -1166,12 +1166,22 @@ static unsigned int netfiler_packet_hook(void *priv, struct sk_buff *skb, const 
   }
 }
 
+static unsigned int netfiler_packet_hook4(void *priv,
+			struct sk_buff *skb,
+			const struct nf_hook_state *state)
+{
+	return netfiler_packet_hook(state->hook, skb, (state->in), (state->out), NULL);
+}
 
 /*
 **  Netfiler hook
 */
 static struct nf_hook_ops nfho_outgoing = {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,0)
+  .hook     = netfiler_packet_hook4,
+#else
   .hook     = netfiler_packet_hook,
+#endif
   .hooknum  = NF_IP_LOCAL_OUT,
   .pf       = NFPROTO_IPV4,
   .priority = NF_IP_PRI_LAST,
