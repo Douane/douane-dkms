@@ -117,6 +117,10 @@ static void append_rule(const char * process_path, const bool is_allowed)
   if (process_path == NULL)
     return;
 
+  // Don't do anything if the process_path length is > PATH_LENGTH
+  if (strlen(process_path) > PATH_LENGTH)
+    return;
+
   new_rule = (struct rule *)kmalloc(sizeof(struct rule), GFP_ATOMIC);
   if(new_rule == NULL)
   {
@@ -125,7 +129,7 @@ static void append_rule(const char * process_path, const bool is_allowed)
   }
 
   // Copy the passed path in the rule
-  strcpy(new_rule->process_path, process_path);
+  strncpy(new_rule->process_path, process_path, PATH_LENGTH);
   new_rule->allowed = is_allowed;
   // Add the rule to the linked list
   list_add_tail(&(new_rule->list), &(rules.list));
@@ -175,6 +179,10 @@ static void remove_rule_from_path(const unsigned char * process_path)
   if (process_path == NULL)
     return;
 
+  // Don't do anything if the process_path length is > PATH_LENGTH
+  if (strlen(process_path) > PATH_LENGTH)
+    return;
+
 #ifdef DEBUG
   printk(KERN_INFO "douane:%d:%s: Deleting rule for path %s.\n", __LINE__, __FUNCTION__, process_path);
 #endif
@@ -183,7 +191,7 @@ static void remove_rule_from_path(const unsigned char * process_path)
   list_for_each_entry_safe(rule_a, rule_b, &(rules.list), list)
   {
     // Compare current rule process_path with the passed one
-    if (strcmp(rule_a->process_path, process_path) == 0)
+    if (strncmp(rule_a->process_path, process_path, PATH_LENGTH) == 0)
     {
       // If found delete the rule from the linked list
       list_del(&rule_a->list);
@@ -205,11 +213,15 @@ static struct rule * search_rule_for_process_path(const unsigned char * process_
   if (process_path == NULL)
     return NULL;
 
+  // Don't do anything if the process_path length is > PATH_LENGTH
+  if (strlen(process_path) > PATH_LENGTH)
+    return NULL;
+
   // Iterate over all registered rules
   list_for_each_entry(current_rule, &(rules.list), list)
   {
     // Compare current rule process_path with the passed one
-    if (strcmp(current_rule->process_path, process_path) == 0)
+    if (strncmp(current_rule->process_path, process_path, PATH_LENGTH) == 0)
     {
 #ifdef DEBUG
       if (current_rule->allowed)
@@ -253,6 +265,10 @@ static void remember_process_socket_inode(const pid_t pid, const uint32_t sequen
   if (pid == 0 || i_ino == 0 || path == NULL)
     return;
 
+  // Don't do anything if the path length is > PATH_LENGTH
+  if (strlen(path) > PATH_LENGTH)
+    return;
+
   /*
   ** In order to clean this linked list, before saving the new relation process <-> socket file
   *  we first look if there are records for the given PID with a different path.
@@ -260,7 +276,7 @@ static void remember_process_socket_inode(const pid_t pid, const uint32_t sequen
   */
   list_for_each_entry_safe(process_socket_inode_a, process_socket_inode_b, &(process_socket_inodes.list), list)
   {
-    if (process_socket_inode_a->pid == pid && strcmp(process_socket_inode_a->process_path, path) != 0)
+    if (process_socket_inode_a->pid == pid && strncmp(process_socket_inode_a->process_path, path, PATH_LENGTH) != 0)
     {
 #ifdef DEBUG
       printk(KERN_INFO "douane:%d:%s: The process path %s relates to PID %d but is now %s.\n", __LINE__, __FUNCTION__, process_socket_inode_a->process_path, process_socket_inode_a->pid, path);
@@ -292,7 +308,7 @@ static void remember_process_socket_inode(const pid_t pid, const uint32_t sequen
   new_process_socket_inode->i_ino = i_ino;
   new_process_socket_inode->pid = pid;
   new_process_socket_inode->sequence = sequence;
-  strcpy(new_process_socket_inode->process_path, path);
+  strncpy(new_process_socket_inode->process_path, path, PATH_LENGTH);
 
   list_add_tail(&(new_process_socket_inode->list), &(process_socket_inodes.list));
 }
@@ -413,6 +429,12 @@ static int push(const struct network_activity *activity)
   {
     printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: process_path is blank.\n", __LINE__, __FUNCTION__);
     return 0;
+  }
+
+  // If process_path is too long, don't send the network_activity message to the daemon
+  if (strlen(activity->process_path) > PATH_LENGTH)
+  {
+    printk(KERN_ERR "douane:%d:%s: BLOCKED PUSH: process_path is too long.\n", __LINE__, __FUNCTION__);
   }
 
   skb = nlmsg_new(NLMSG_ALIGN(sizeof(struct network_activity)) + nla_total_size(1), GFP_KERNEL);
