@@ -17,7 +17,6 @@
 #include <linux/module.h>         // Needed by all modules
 #include <linux/kernel.h>         // Needed for KERN_INFO
 #include <linux/version.h>        // Needed for LINUX_VERSION_CODE >= KERNEL_VERSION
-#include <linux/netfilter.h>
 // ~~~~ Due to bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/929715 ~~~~
 // #undef __KERNEL__
 // #include <linux/netfilter_ipv4.h> // NF_IP_POST_ROUTING, NF_IP_PRI_LAST
@@ -27,6 +26,7 @@ enum nf_ip_hook_priorities {
   NF_IP_PRI_LAST = INT_MAX
 };
 // ~~~~
+#include <linux/netdevice.h>	  // net_device
 #include <linux/netfilter.h>      // nf_register_hook(), nf_unregister_hook(), nf_register_net_hook(), nf_unregister_net_hook()
 #include <linux/netlink.h>        // NLMSG_SPACE(), nlmsg_put(), NETLINK_CB(), NLMSG_DATA(), NLM_F_REQUEST, netlink_unicast(), netlink_kernel_release(), nlmsg_hdr(), NETLINK_USERSOCK, netlink_kernel_create()
 #include <linux/sched.h>          // for_each_process(), task_lock(), task_unlock()
@@ -1176,11 +1176,15 @@ static struct nf_hook_ops nfho_outgoing = {
   .hooknum  = NF_IP_LOCAL_OUT,
   .pf       = NFPROTO_IPV4,
   .priority = NF_IP_PRI_LAST,
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,12,14)
+  .dev	    = ,
+# endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
   .owner    = THIS_MODULE
 #endif
 };
 
+const struct nf_hook_state *nf_state;
 
 /*
 ** Linux kernel module initializer and cleaner methods
@@ -1190,9 +1194,23 @@ static int __init initialize_module(void)
 #ifdef DEBUG
   printk(KERN_INFO "douane:%d:%s: Initializing module\n", __LINE__, __FUNCTION__);
 #endif
+  printk(KERN_INFO "douane:%d:%s: cyn TOP\n", __LINE__, __FUNCTION__);
+  /*
+  read_lock(&dev_base_lock);
+  while(dev){
+    printk(KERN_INFO "douane: cyn: found [%s]\n", dev->name);
+    dev = next_net_device(dev);
+  }
+  read_unlock(&dev_base_lock);
+  */
+  printk(KERN_INFO "douane:%d:%s: cyn BOTTOM\n", __LINE__, __FUNCTION__);
+
   INIT_LIST_HEAD(&rules.list);
   INIT_LIST_HEAD(&process_socket_inodes.list);
-
+  
+  //printk(KERN_INFO "douane: cyn: in: %s\n", nf_state->in->name);
+  //printk(KERN_INFO "douane: cyn: out: %s\n", &nf_state->out->name);
+ 
   // Hook to Netfilter
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(4,12,14)
   nf_register_hook(&nfho_outgoing);
@@ -1226,7 +1244,11 @@ static void __exit exit_module(void)
     activities_socket = NULL;
   }
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,12,14)
+  nf_unregister_hook(&nfho_outgoing);
+#else
   nf_unregister_net_hook(&init_net, &nfho_outgoing);
+#endif
 
 #ifdef DEBUG
   printk(KERN_INFO "douane:%d:%s: Kernel module removed!\n", __LINE__, __FUNCTION__);
