@@ -4,4 +4,4 @@
 
 This repository contains the kernel module, the heart, of [the Douane firewall application](https://github.com/Douane/Douane), a Linux application firewall.
 
-Find the compilcation instructions in [the Compilation Wiki page](https://github.com/Douane/Douane/wiki/Compilation).
+Find the compilation instructions in [the Compilation Wiki page](https://github.com/Douane/Douane/wiki/Compilation).

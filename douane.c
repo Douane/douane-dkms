@@ -1177,14 +1177,13 @@ static struct nf_hook_ops nfho_outgoing = {
   .pf       = NFPROTO_IPV4,
   .priority = NF_IP_PRI_LAST,
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(4,12,14)
-  .dev	    = ,
+  .dev	    = dev_get_by_name(&init_net, "enp0s25"),
 # endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
   .owner    = THIS_MODULE
 #endif
 };
 
-const struct nf_hook_state *nf_state;
 
 /*
 ** Linux kernel module initializer and cleaner methods
@@ -1193,23 +1192,18 @@ static int __init initialize_module(void)
 {
 #ifdef DEBUG
   printk(KERN_INFO "douane:%d:%s: Initializing module\n", __LINE__, __FUNCTION__);
-#endif
-  printk(KERN_INFO "douane:%d:%s: cyn TOP\n", __LINE__, __FUNCTION__);
-  /*
-  read_lock(&dev_base_lock);
-  while(dev){
-    printk(KERN_INFO "douane: cyn: found [%s]\n", dev->name);
+
+  // Net Device debugging
+  struct net_device *dev = first_net_device(&init_net);
+  while(dev)
+  {
+    printk(KERN_INFO "douane:%d:%s: Net_Device found: name: %s - ifindex: %d\n", __LINE__, __FUNCTION__, dev->name, dev->ifindex);
     dev = next_net_device(dev);
   }
-  read_unlock(&dev_base_lock);
-  */
-  printk(KERN_INFO "douane:%d:%s: cyn BOTTOM\n", __LINE__, __FUNCTION__);
-
+#endif
   INIT_LIST_HEAD(&rules.list);
   INIT_LIST_HEAD(&process_socket_inodes.list);
   
-  //printk(KERN_INFO "douane: cyn: in: %s\n", nf_state->in->name);
-  //printk(KERN_INFO "douane: cyn: out: %s\n", &nf_state->out->name);
  
   // Hook to Netfilter
 #if LINUX_VERSION_CODE <= KERNEL_VERSION(4,12,14)
