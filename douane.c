@@ -30,7 +30,13 @@ enum nf_ip_hook_priorities {
 #include <linux/netfilter.h>      // nf_register_hook(), nf_unregister_hook()
 #include <linux/netlink.h>        // NLMSG_SPACE(), nlmsg_put(), NETLINK_CB(), NLMSG_DATA(), NLM_F_REQUEST, netlink_unicast(), netlink_kernel_release(), nlmsg_hdr(), NETLINK_USERSOCK, netlink_kernel_create()
 #include <linux/sched.h>          // for_each_process(), task_lock(), task_unlock()
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0)
+#include <linux/signal.h>
+#else
 #include <linux/sched/signal.h>          // for_each_process(), task_lock(), task_unlock()
+#endif
+
 #include <linux/ip.h>             // ip_hdr()
 #include <linux/udp.h>            // udp_hdr()
 #include <linux/tcp.h>            // tcp_hdr()
