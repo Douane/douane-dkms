@@ -54,7 +54,7 @@ all:
 
 # make clean
 clean:
-	$(MAKE) -C /lib/modules/$(KERNEL_VERSION)/build M=$(PWD) clean
+	$(MAKE) -C /lib/modules/$(KERNEL_VERSION)/build M=$(shell pwd) clean
 
 # make install (While developing, without using DKMS)
 install:
