@@ -974,19 +974,6 @@ static unsigned int netfiler_packet_hook(void *priv, struct sk_buff *skb, const 
 #else
           socket_file_ino = skb->sk->sk_socket->file->f_dentry->d_inode->i_ino;
 #endif
-	  if(socket_file_ino == NULL)
-	  {
-            printk(KERN_ERR "douane:%d:%s: !!OOPS!! socket_file_ino == NULL. !!OOPS!!\n", __LINE__, __FUNCTION__);
-            kfree(activity);
-            return NF_ACCEPT;
-	  }
-
-	  if(task_info == NULL)
-	  {
-            printk(KERN_ERR "douane:%d:%s: !!OOPS!! task_info == NULL. !!OOPS!!\n", __LINE__, __FUNCTION__);
-            kfree(activity);
-            return NF_ACCEPT;
-	  }
 
           task_info = task_info_from_open_file_inode(socket_file_ino);
           if (task_info)
