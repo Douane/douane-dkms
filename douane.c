@@ -1181,9 +1181,6 @@ static struct nf_hook_ops nfho_outgoing = {
   .hooknum  = NF_IP_LOCAL_OUT,
   .pf       = NFPROTO_IPV4,
   .priority = NF_IP_PRI_LAST,
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,12,14)
-//  .dev	    = , // .dev is not used!
-# endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,4,0)
   .owner    = THIS_MODULE
 #endif
