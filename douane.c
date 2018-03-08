@@ -17,7 +17,6 @@
 #include <linux/module.h>         // Needed by all modules
 #include <linux/kernel.h>         // Needed for KERN_INFO
 #include <linux/version.h>        // Needed for LINUX_VERSION_CODE >= KERNEL_VERSION
-#include <linux/netfilter.h>
 // ~~~~ Due to bug https://bugs.launchpad.net/ubuntu/+source/linux/+bug/929715 ~~~~
 // #undef __KERNEL__
 // #include <linux/netfilter_ipv4.h> // NF_IP_POST_ROUTING, NF_IP_PRI_LAST
@@ -27,9 +26,9 @@ enum nf_ip_hook_priorities {
   NF_IP_PRI_LAST = INT_MAX
 };
 // ~~~~
-#include <linux/netfilter.h>      // nf_register_hook(), nf_unregister_hook()
+#include <linux/netdevice.h>	  // net_device
+#include <linux/netfilter.h>      // nf_register_hook(), nf_unregister_hook(), nf_register_net_hook(), nf_unregister_net_hook()
 #include <linux/netlink.h>        // NLMSG_SPACE(), nlmsg_put(), NETLINK_CB(), NLMSG_DATA(), NLM_F_REQUEST, netlink_unicast(), netlink_kernel_release(), nlmsg_hdr(), NETLINK_USERSOCK, netlink_kernel_create()
-#include <linux/sched.h>          // for_each_process(), task_lock(), task_unlock()
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4,11,0)
 #include <linux/signal.h>
@@ -1195,12 +1194,25 @@ static int __init initialize_module(void)
 {
 #ifdef DEBUG
   printk(KERN_INFO "douane:%d:%s: Initializing module\n", __LINE__, __FUNCTION__);
+
+  // Net Device debugging
+  struct net_device *dev = first_net_device(&init_net);
+  while(dev)
+  {
+    printk(KERN_INFO "douane:%d:%s: Net_Device found: name: %s - ifindex: %d\n", __LINE__, __FUNCTION__, dev->name, dev->ifindex);
+    dev = next_net_device(dev);
+  }
 #endif
   INIT_LIST_HEAD(&rules.list);
   INIT_LIST_HEAD(&process_socket_inodes.list);
-
+  
+ 
   // Hook to Netfilter
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,12,14)
   nf_register_hook(&nfho_outgoing);
+#else
+  nf_register_net_hook(&init_net, &nfho_outgoing);
+#endif
 
   // Open a Netfilter socket to communicate with the user space
   if (initialize_activities_socket() < 0)
@@ -1228,7 +1240,11 @@ static void __exit exit_module(void)
     activities_socket = NULL;
   }
 
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(4,12,14)
   nf_unregister_hook(&nfho_outgoing);
+#else
+  nf_unregister_net_hook(&init_net, &nfho_outgoing);
+#endif
 
 #ifdef DEBUG
   printk(KERN_INFO "douane:%d:%s: Kernel module removed!\n", __LINE__, __FUNCTION__);

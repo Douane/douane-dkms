@@ -42,7 +42,7 @@ MODPROBE_OUTPUT=$(shell lsmod | grep douane)
 # Compilation flags
 EXTRA_CFLAGS=-g -DDOUANE_VERSION=\"$(MODULE_VERSION)\"
 # Compilation flags with debug
-# EXTRA_CFLAGS=-g -DDOUANE_VERSION=\"$(MODULE_VERSION)\" -DDEBUG
+#EXTRA_CFLAGS=-g -DDOUANE_VERSION=\"$(MODULE_VERSION)\" -DDEBUG
 
 ifeq ($(KERNEL_VERSION),)
 KERNEL_VERSION=$(shell uname -r)
