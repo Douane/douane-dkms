@@ -1,7 +1,3 @@
 # douane-dkms
 
-[![Build Status](https://drone.io/github.com/Douane/douane-dkms/status.png)](https://drone.io/github.com/Douane/douane-dkms/latest)
-
-This repository contains the kernel module, the heart, of [the Douane firewall application](https://github.com/Douane/Douane), a Linux application firewall.
-
-Find the compilation instructions in [the Compilation Wiki page](https://github.com/Douane/Douane/wiki/Compilation).
+This repo has been moved to GitLab. [Go to the right place now!](https://gitlab.com/douaneapp/douane-dkms)
